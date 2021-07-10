@@ -1,28 +1,39 @@
-#include "imports.h"
-#include "led.h"
-#include "vibration.h"
+#include <Blynk.h>
+#include <ESP8266WiFi.h>
 
-LedActuator* ledActuator = NULL;
-VibrationSensor* vibrationSensor = NULL;
+const char* ssid     = "Honeypot U";
+const char* password = "";
 
-// the setup function runs once when you press reset or power the board
+// const char* host = "data.sparkfun.com";
+// const char* streamId   = "....................";
+// const char* privateKey = "....................";
+
 void setup() {
   Serial.begin(9600);
-  Serial.println("Car Violation Detection starting up");
+  delay(100);
+
+  // We start by connecting to a WiFi network
+
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
   
-  ledActuator = new LedActuator(LED_BUILTIN);
-  vibrationSensor = new VibrationSensor(A0);
-
-  delay(10);
-}
-
-// the loop function runs over and over again forever
-void loop() {
-  if(vibrationSensor->isMoving()) {
-    ledActuator->turnOn();
-  } else {
-    ledActuator->turnOff();
+  WiFi.begin(ssid, password);
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
   }
 
-  delay(100);
+  Serial.println("");
+  Serial.println("WiFi connected");  
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+int value = 0;
+
+void loop() {
+  delay(5000);
 }
