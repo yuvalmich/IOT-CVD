@@ -1,39 +1,62 @@
-#include <Blynk.h>
+#define BLYNK_PRINT Serial
+
 #include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
 
-const char* ssid     = "Honeypot U";
-const char* password = "";
+// You should get Auth Token in the Blynk App.
+// Go to the Project Settings (nut icon).
+char auth[] = "token";
 
-// const char* host = "data.sparkfun.com";
-// const char* streamId   = "....................";
-// const char* privateKey = "....................";
+// Your WiFi credentials.
+// Set password to "" for open networks.
+char ssid[] = "ssid";
+char pass[] = "pass";
 
-void setup() {
-  Serial.begin(9600);
-  delay(100);
+BlynkTimer timer;
+int uptimeCounter;
+String someStaticData = "SomeStaticData";
 
-  // We start by connecting to a WiFi network
-
-  Serial.println();
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  
-  WiFi.begin(ssid, password);
-  
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi connected");  
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+// This function will run every time Blynk connection is established
+BLYNK_CONNECTED()
+{
+    //get data stored in virtual pin V0 from server
+    Blynk.syncVirtual(V0);
 }
 
-int value = 0;
+// restoring counter from server
+BLYNK_WRITE(V0)
+{
+    //restoring int value
+    uptimeCounter = param[0].asInt();
+    //restoring string value
+    someStaticData = param[1].asString();
+}
 
-void loop() {
-  delay(5000);
+void increment()
+{
+    uptimeCounter++;
+
+    //storing int and string in V0 pin on server
+    Blynk.virtualWrite(V0, uptimeCounter, someStaticData);
+
+    //updating value display with uptimeCounter
+    Blynk.virtualWrite(V1, uptimeCounter);
+}
+
+void setup()
+{
+    // Debug console
+    Serial.begin(9600);
+    Blynk.begin(auth, ssid, pass);
+    // You can also specify server:
+    //Blynk.begin(auth, ssid, pass, "blynk-cloud.com", 80);
+    //Blynk.begin(auth, ssid, pass, IPAddress(192,168,1,100), 8080);
+
+    timer.setInterval(1000L, increment);
+}
+
+void loop()
+{
+    Blynk.run();
+    timer.run();
 }
