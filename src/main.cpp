@@ -2,15 +2,19 @@
 
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
+
+String host = "";
 
 // You should get Auth Token in the Blynk App.
 // Go to the Project Settings (nut icon).
-char auth[] = "token";
+char auth[] = "";
 
 // Your WiFi credentials.
 // Set password to "" for open networks.
-char ssid[] = "ssid";
-char pass[] = "pass";
+char ssid[] = "";
+char pass[] = "";
 
 BlynkTimer timer;
 int uptimeCounter;
@@ -34,13 +38,36 @@ BLYNK_WRITE(V0)
 
 void increment()
 {
-    uptimeCounter++;
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        WiFiClient client;
+        HTTPClient http;
 
-    //storing int and string in V0 pin on server
-    Blynk.virtualWrite(V0, uptimeCounter, someStaticData);
+        // Your Domain name with URL path or IP address with path
+        http.begin(client, host.c_str());
 
-    //updating value display with uptimeCounter
-    Blynk.virtualWrite(V1, uptimeCounter);
+        // Send HTTP GET request
+        int httpResponseCode = http.GET();
+
+        if (httpResponseCode > 0)
+        {
+            Serial.print("HTTP Response code: ");
+            Serial.println(httpResponseCode);
+            String payload = http.getString();
+            Serial.println(payload);
+        }
+        else
+        {
+            Serial.print("Error code: ");
+            Serial.println(httpResponseCode);
+        }
+        // Free resources
+        http.end();
+    }
+    else
+    {
+        Serial.println("WiFi Disconnected");
+    }
 }
 
 void setup()
@@ -48,11 +75,23 @@ void setup()
     // Debug console
     Serial.begin(9600);
     Blynk.begin(auth, ssid, pass);
+
     // You can also specify server:
     //Blynk.begin(auth, ssid, pass, "blynk-cloud.com", 80);
     //Blynk.begin(auth, ssid, pass, IPAddress(192,168,1,100), 8080);
 
-    timer.setInterval(1000L, increment);
+    WiFi.begin(ssid, pass);
+    Serial.println("Connecting");
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("");
+    Serial.print("Connected to WiFi network with IP Address: ");
+    Serial.println(WiFi.localIP());
+
+    timer.setInterval(10000L, increment);
 }
 
 void loop()
