@@ -1,5 +1,9 @@
 #define BLYNK_PRINT Serial
 
+#include "imports.h"
+
+#include "vibration.h"
+
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
 #include <ESP8266HTTPClient.h>
@@ -19,6 +23,7 @@ char pass[] = "";
 BlynkTimer timer;
 int uptimeCounter;
 String someStaticData = "SomeStaticData";
+VibrationSensor* vibrationSensor = NULL;
 
 // This function will run every time Blynk connection is established
 BLYNK_CONNECTED()
@@ -36,15 +41,17 @@ BLYNK_WRITE(V0)
     someStaticData = param[1].asString();
 }
 
-void increment()
+void onVandalismDetected()
 {
     if (WiFi.status() == WL_CONNECTED)
     {
         WiFiClient client;
         HTTPClient http;
 
+        String url = host + "?lon=32&lat=35";
+
         // Your Domain name with URL path or IP address with path
-        http.begin(client, host.c_str());
+        http.begin(client, url.c_str());
 
         // Send HTTP GET request
         int httpResponseCode = http.GET();
@@ -70,15 +77,24 @@ void increment()
     }
 }
 
+bool wasMoved = false;
+
+void applicationLoop() {
+  if(vibrationSensor->isMoving() && !wasMoved) {
+      wasMoved = true;
+      onVandalismDetected();
+  } else if (!vibrationSensor->isMoving()) {
+      wasMoved = false;
+  }
+}
+
 void setup()
 {
+    vibrationSensor = new VibrationSensor(A0);
+
     // Debug console
     Serial.begin(9600);
     Blynk.begin(auth, ssid, pass);
-
-    // You can also specify server:
-    //Blynk.begin(auth, ssid, pass, "blynk-cloud.com", 80);
-    //Blynk.begin(auth, ssid, pass, IPAddress(192,168,1,100), 8080);
 
     WiFi.begin(ssid, pass);
     Serial.println("Connecting");
@@ -91,8 +107,9 @@ void setup()
     Serial.print("Connected to WiFi network with IP Address: ");
     Serial.println(WiFi.localIP());
 
-    timer.setInterval(10000L, increment);
+    timer.setInterval(100, applicationLoop);
 }
+
 
 void loop()
 {
