@@ -3,6 +3,7 @@
 #include "imports.h"
 
 #include "vibration.h"
+#include "gps.h"
 
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
@@ -24,6 +25,8 @@ BlynkTimer timer;
 int uptimeCounter;
 String someStaticData = "SomeStaticData";
 VibrationSensor* vibrationSensor = NULL;
+GpsSensor* gpsSensor = NULL;
+byte BLUETOOTH_STATE_PIN = 6;
 
 // This function will run every time Blynk connection is established
 BLYNK_CONNECTED()
@@ -79,7 +82,16 @@ void onVandalismDetected()
 
 bool wasMoved = false;
 
+bool isBluetoothConnected() {
+  return digitalRead(BLUETOOTH_STATE_PIN) == HIGH;
+}
+
 void applicationLoop() {
+  if(isBluetoothConnected()) {
+    Serial.println("BT is connected");
+  } else {
+    Serial.println("BT is not connected");
+  }
   if(vibrationSensor->isMoving() && !wasMoved) {
       wasMoved = true;
       onVandalismDetected();
@@ -90,10 +102,13 @@ void applicationLoop() {
 
 void setup()
 {
+    Serial.begin(115200);
+
+    pinMode(BLUETOOTH_STATE_PIN, INPUT);
     vibrationSensor = new VibrationSensor(A0);
+    gpsSensor = new GpsSensor(2, 3);
 
     // Debug console
-    Serial.begin(9600);
     Blynk.begin(auth, ssid, pass);
 
     WiFi.begin(ssid, pass);
