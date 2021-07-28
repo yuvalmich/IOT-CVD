@@ -22,76 +22,62 @@ char ssid[] = "";
 char pass[] = "";
 
 BlynkTimer timer;
-int uptimeCounter;
-String someStaticData = "SomeStaticData";
 VibrationSensor* vibrationSensor = NULL;
 GpsSensor* gpsSensor = NULL;
-byte BLUETOOTH_STATE_PIN = 6;
 
-// This function will run every time Blynk connection is established
-BLYNK_CONNECTED()
-{
-    //get data stored in virtual pin V0 from server
-    Blynk.syncVirtual(V0);
-}
+bool isBluetoothConnected = false;
+bool wasMoved = false;
 
-// restoring counter from server
 BLYNK_WRITE(V0)
 {
-    //restoring int value
-    uptimeCounter = param[0].asInt();
-    //restoring string value
-    someStaticData = param[1].asString();
+    isBluetoothConnected = param.asInt();
+
+    Serial.println(isBluetoothConnected ? "bluetooth connected" : "bluetooth disconnected");
 }
 
 void onVandalismDetected()
 {
-    if (WiFi.status() == WL_CONNECTED)
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("Couldn't report an accident becuase WiFi Disconnected");
+        return;
+    }
+
+    if (!isBluetoothConnected) {
+        Serial.println("Accident accoured but not in parking mode");
+        return;
+    }
+
+    WiFiClient client;
+    HTTPClient http;
+
+    String url = host + "?lon=32&lat=35";
+
+    // Your Domain name with URL path or IP address with path
+    http.begin(client, url.c_str());
+
+    // Send HTTP GET request
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode == 200)
     {
-        WiFiClient client;
-        HTTPClient http;
-
-        String url = host + "?lon=32&lat=35";
-
-        // Your Domain name with URL path or IP address with path
-        http.begin(client, url.c_str());
-
-        // Send HTTP GET request
-        int httpResponseCode = http.GET();
-
-        if (httpResponseCode > 0)
-        {
-            Serial.print("HTTP Response code: ");
-            Serial.println(httpResponseCode);
-            String payload = http.getString();
-            Serial.println(payload);
-        }
-        else
-        {
-            Serial.print("Error code: ");
-            Serial.println(httpResponseCode);
-        }
-        // Free resources
-        http.end();
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+        String payload = http.getString();
+        Serial.println(payload);
     }
     else
     {
-        Serial.println("WiFi Disconnected");
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
     }
+
+    // Free resources
+    http.end();
+
 }
 
-bool wasMoved = false;
-
-bool isBluetoothConnected() {
-  return digitalRead(BLUETOOTH_STATE_PIN) == HIGH;
-}
 
 void applicationLoop() {
-  if(isBluetoothConnected()) {
-    Serial.println("BT is connected");
-  } else {
-    Serial.println("BT is not connected");
-  }
   if(vibrationSensor->isMoving() && !wasMoved) {
       wasMoved = true;
       onVandalismDetected();
@@ -104,7 +90,6 @@ void setup()
 {
     Serial.begin(115200);
 
-    pinMode(BLUETOOTH_STATE_PIN, INPUT);
     vibrationSensor = new VibrationSensor(A0);
     gpsSensor = new GpsSensor(2, 3);
 
