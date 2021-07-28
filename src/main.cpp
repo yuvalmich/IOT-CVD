@@ -10,7 +10,8 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
 
-String host = "";
+const unsigned long NOTIFICATION_INTERVAL = 1000 * 10;
+unsigned long lastTimeMoved = 0;
 
 // You should get Auth Token in the Blynk App.
 // Go to the Project Settings (nut icon).
@@ -22,8 +23,8 @@ char ssid[] = "";
 char pass[] = "";
 
 BlynkTimer timer;
-VibrationSensor* vibrationSensor = NULL;
-GpsSensor* gpsSensor = NULL;
+VibrationSensor *vibrationSensor = NULL;
+GpsSensor *gpsSensor = NULL;
 
 bool isBluetoothConnected = false;
 bool wasMoved = false;
@@ -37,12 +38,14 @@ BLYNK_WRITE(V0)
 
 void onVandalismDetected()
 {
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("Couldn't report an accident becuase WiFi Disconnected");
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.println("Couldn't report an accident becuase WiFi disconnected");
         return;
     }
 
-    if (!isBluetoothConnected) {
+    if (!isBluetoothConnected)
+    {
         Serial.println("Accident accoured but not in parking mode");
         return;
     }
@@ -73,22 +76,26 @@ void onVandalismDetected()
 
     // Free resources
     http.end();
-
 }
 
+void applicationLoop()
+{
+    unsigned long timeSinceLastMovement = millis() - lastTimeMoved;
 
-void applicationLoop() {
-  if(vibrationSensor->isMoving() && !wasMoved) {
-      wasMoved = true;
-      onVandalismDetected();
-  } else if (!vibrationSensor->isMoving()) {
-      wasMoved = false;
-  }
+    if (vibrationSensor->isMoving())
+    {
+        if (timeSinceLastMovement > NOTIFICATION_INTERVAL) {
+            onVandalismDetected();
+            lastTimeMoved = millis();
+        } else {
+            Serial.println("Accident accoured but notifaction interval was not passes");
+        }
+    }
 }
 
 void setup()
 {
-    Serial.begin(115200);
+    Serial.begin(9600);
 
     vibrationSensor = new VibrationSensor(A0);
     gpsSensor = new GpsSensor(2, 3);
@@ -109,7 +116,6 @@ void setup()
 
     timer.setInterval(100, applicationLoop);
 }
-
 
 void loop()
 {
