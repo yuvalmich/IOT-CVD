@@ -2,8 +2,6 @@
 
 class GpsSensor {
     private:
-    int rx;
-    int tx;
     SoftwareSerial* serial_connection;
     TinyGPSPlus gps;
 
@@ -14,7 +12,7 @@ class GpsSensor {
         serial_connection->begin(9600); //This opens up communications to the GPS   
     }
 
-    double* getLatLong() {
+    double* getLongLat() {
         while(this->serial_connection->available())//While there are characters to come from the GPS
         {
             Serial.println("available");
