@@ -3,7 +3,7 @@
 class VibrationSensor {
     private:
     uint16 pin;
-    int NO_MOVEMENT_FLAG = 1000;
+    int NO_MOVEMENT_FLAG = 500;
 
     public:
 
@@ -16,13 +16,6 @@ class VibrationSensor {
     }
 
     bool isMoving() {
-        int v = getVibrationValue();
-        bool a = v < this->NO_MOVEMENT_FLAG;
-        if(a) {
-            Serial.println(v);
-        }
-        return a;
-
-        // return getVibrationValue() < this->NO_MOVEMENT_FLAG;
+        return getVibrationValue() < this->NO_MOVEMENT_FLAG;
     }
 };

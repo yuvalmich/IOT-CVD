@@ -4,6 +4,7 @@
 
 #include "vibration.h"
 #include "gps.h"
+#include "bluetooth.h"
 
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
@@ -13,27 +14,59 @@
 const unsigned long NOTIFICATION_INTERVAL = 1000 * 10;
 unsigned long lastTimeMoved = 0;
 
-// You should get Auth Token in the Blynk App.
-// Go to the Project Settings (nut icon).
+// server base url
+String baseUrl = "http://192.168.0.111:3000/park/";
 char auth[] = "";
 
-// Your WiFi credentials.
+// Blynk auth key
 // Set password to "" for open networks.
 char ssid[] = "";
 char pass[] = "";
 
+// Wifi credentials
+
 BlynkTimer timer;
 VibrationSensor *vibrationSensor = NULL;
 GpsSensor *gpsSensor = NULL;
+BluetoothSensor *bluetoothSensor = NULL;
 
-bool isBluetoothConnected = false;
-bool wasMoved = false;
+bool savePark() {
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.println("Couldn't save parking becuase WiFi disconnected");
+        return true;
+    }
 
-BLYNK_WRITE(V0)
-{
-    isBluetoothConnected = param.asInt();
+    WiFiClient client;
+    HTTPClient http;
 
-    Serial.println(isBluetoothConnected ? "bluetooth connected" : "bluetooth disconnected");
+    double* lonLat = gpsSensor->getLongLat();
+    String url = baseUrl + "parking?lon=" + lonLat[0] + "&lat=" + lonLat[1];
+
+    // Your Domain name with URL path or IP address with path
+    http.begin(client, url.c_str());
+
+    // Send HTTP GET request
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode == 200)
+    {
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+        String payload = http.getString();
+        return payload.equals("true");
+    }
+    else
+    {
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+        Blynk.notify("We are so sorry! We couldn't verify if your parking is safe");
+        return true;
+    }
+
+    // Free resources
+    http.end();
+
 }
 
 void onVandalismDetected()
@@ -44,16 +77,19 @@ void onVandalismDetected()
         return;
     }
 
-    if (!isBluetoothConnected)
+    if (!bluetoothSensor->isParking())
     {
         Serial.println("Accident accoured but not in parking mode");
         return;
     }
 
+    Blynk.notify("Ohh shit! someone hit your car");
+
     WiFiClient client;
     HTTPClient http;
 
-    String url = host + "?lon=32&lat=35";
+    double* lonLat = gpsSensor->getLongLat();
+    String url = baseUrl + "accident?lon=" + lonLat[0] + "&lat=" + lonLat[1];
 
     // Your Domain name with URL path or IP address with path
     http.begin(client, url.c_str());
@@ -78,6 +114,22 @@ void onVandalismDetected()
     http.end();
 }
 
+BLYNK_WRITE(V0)
+{
+    bluetoothSensor->setConnection(param.asInt());
+
+    Serial.println(bluetoothSensor->isParking() ? "bluetooth disconnected": "bluetooth connected");
+
+    if (bluetoothSensor->isParking()) {
+        bool isSafe = savePark();
+        if(!isSafe) {
+            Blynk.notify("WARNING! Unsafe parking area");
+        } else {
+            Blynk.notify("Hooray! You parked in a great parking spot!");
+        }
+    }
+}
+
 void applicationLoop()
 {
     unsigned long timeSinceLastMovement = millis() - lastTimeMoved;
@@ -98,7 +150,8 @@ void setup()
     Serial.begin(9600);
 
     vibrationSensor = new VibrationSensor(A0);
-    gpsSensor = new GpsSensor(2, 3);
+    gpsSensor = new GpsSensor(5, 6);
+    bluetoothSensor = new BluetoothSensor(2, 3);
 
     // Debug console
     Blynk.begin(auth, ssid, pass);
